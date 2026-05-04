@@ -3,6 +3,7 @@ import { directorParse, quantAnalyze, riskValidate } from '@/agents/pipeline'
 import type { AgentMessage } from '@/agents/pipeline'
 
 export const runtime = 'edge'
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
