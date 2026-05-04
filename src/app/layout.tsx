@@ -15,6 +15,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Agent Studio — Agentic Finance on Base",
   description: "Multi-agent AI pipeline for on-chain transactions on Base, powered by Coinbase Wallet SDK and AWS.",
+  openGraph: {
+    title: "Agent Studio — EasyA Consensus Miami 2026",
+    description: "AI agents that reason, act, and show their work. Coinbase + AWS Agentic Track.",
+    images: ['/og-image.jpg'],
+  },
+  icons: { icon: '/icon.jpg' },
 };
 
 export default function RootLayout({
