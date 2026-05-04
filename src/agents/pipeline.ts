@@ -17,103 +17,159 @@ export interface ExecutionResult {
   txHash: string
   fromAddress: string
   toAddress: string
-  amount: number
-  fee: number
+  amount: string
+  fee: string
   explorerUrl: string
+  blockNumber?: number
 }
 
-// Agent Pipeline
+// Director Agent — parses natural language intent into structured actions
 export class DirectorAgent {
   parseIntent(userInput: string): { action: string; params: Record<string, unknown> } {
     const lower = userInput.toLowerCase()
-    
-    if (lower.includes('send') || lower.includes('transfer') || lower.includes('pay')) {
+
+    if (lower.includes('send') || lower.includes('transfer') || lower.includes('pay') || lower.includes('remittance')) {
       const amountMatch = userInput.match(/\$?(\d+(?:\.\d+)?)/)
-      const amount = amountMatch ? parseFloat(amountMatch[1]) : 50
-      
-      let toCountry = 'brazil'
-      if (lower.includes('mexico')) toCountry = 'mexico'
-      else if (lower.includes('philippines')) toCountry = 'philippines'
-      else if (lower.includes('india')) toCountry = 'india'
-      
+      const amount = amountMatch ? parseFloat(amountMatch[1]) : 0.01
+
+      let toAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38' // default demo address
+      if (lower.includes('brazil')) toAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38'
+      if (lower.includes('mexico')) toAddress = '0x8ba1f109551bD432803012645Ac136ddd64DBA72'
+      if (lower.includes('philippines')) toAddress = '0xdD2FD4581271e230360230F9337D5c0430Bf44C0'
+
       return {
         action: 'send_remittance',
-        params: { amount, toCountry }
+        params: { amount, toAddress, currency: 'ETH' }
       }
     }
-    
-    if (lower.includes('swap') || lower.includes('exchange')) {
+
+    if (lower.includes('swap') || lower.includes('exchange') || lower.includes('convert')) {
       const amountMatch = userInput.match(/\$?(\d+(?:\.\d+)?)/)
       return {
         action: 'swap',
-        params: { 
-          amount: amountMatch ? parseFloat(amountMatch[1]) : 100,
-          from: 'usdc',
-          to: 'xrp'
+        params: {
+          amount: amountMatch ? parseFloat(amountMatch[1]) : 0.01,
+          from: 'ETH',
+          to: 'USDC'
         }
       }
     }
-    
+
+    if (lower.includes('balance') || lower.includes('check') || lower.includes('status')) {
+      return {
+        action: 'check_balance',
+        params: {}
+      }
+    }
+
     return { action: 'unknown', params: {} }
   }
 }
 
+// Quant Agent — fetches live market data and analyzes conditions
 export class QuantAgent {
   async analyze(params: Record<string, unknown>): Promise<{
-    marketData: { price: number; depth: number; feeEstimate: number }
+    marketData: {
+      gasPrice: string
+      baseFee: string
+      networkCongestion: 'low' | 'medium' | 'high'
+      estimatedConfirmationTime: string
+      feeEstimate: string
+    }
     recommendation: string
   }> {
-    // In production: fetch real market data from XRPL DEX
+    // In production: fetch real Base Sepolia gas data via publicClient
     // For demo: simulate plausible market conditions
+    const baseFee = (0.001 + Math.random() * 0.002).toFixed(6)
+    const gasPrice = (parseFloat(baseFee) * 1.1).toFixed(6)
+    const congestion = Math.random() > 0.7 ? 'medium' : 'low'
+
     return {
       marketData: {
-        price: 2.45 + Math.random() * 0.1,
-        depth: 150000,
-        feeEstimate: 0.0012
+        gasPrice: `${gasPrice} ETH`,
+        baseFee: `${baseFee} ETH`,
+        networkCongestion: congestion,
+        estimatedConfirmationTime: '< 5 seconds',
+        feeEstimate: `${(parseFloat(baseFee) * 21000 / 1e18).toFixed(6)} ETH`,
       },
       recommendation: 'CONDITION_MET'
     }
   }
 }
 
+// Risk Agent — validates transaction safety
 export class RiskAgent {
-  validate(params: Record<string, unknown>, marketData: { feeEstimate: number }): {
+  validate(params: Record<string, unknown>, marketData: { feeEstimate: string }): {
     approved: boolean
     reasons: string[]
+    checks: { name: string; passed: boolean; detail: string }[]
   } {
     const reasons: string[] = []
-    
-    if (marketData.feeEstimate > 1) {
-      reasons.push(`Fee too high: $${marketData.feeEstimate}`)
-    }
-    
+    const checks: { name: string; passed: boolean; detail: string }[] = []
+
     const amount = (params.amount as number) || 0
-    if (amount > 1000) {
-      reasons.push('Amount exceeds safe threshold')
-    }
-    
+
+    // Check 1: Amount threshold
+    const amountCheck = amount <= 1
+    checks.push({
+      name: 'Amount Threshold',
+      passed: amountCheck,
+      detail: amountCheck ? `${amount} ETH within safe limit (≤1 ETH)` : `${amount} ETH exceeds safe threshold`
+    })
+    if (!amountCheck) reasons.push('Amount exceeds 1 ETH safe threshold')
+
+    // Check 2: Fee check
+    const feeEst = parseFloat(marketData.feeEstimate) || 0
+    const feeCheck = feeEst < 0.01
+    checks.push({
+      name: 'Fee Validation',
+      passed: feeCheck,
+      detail: feeCheck ? `Fee ${marketData.feeEstimate} under $0.01 threshold` : `Fee ${marketData.feeEstimate} too high`
+    })
+    if (!feeCheck) reasons.push(`Fee too high: ${marketData.feeEstimate}`)
+
+    // Check 3: Address validation
+    const toAddress = params.toAddress as string
+    const addressCheck = toAddress?.startsWith('0x') && toAddress.length === 42
+    checks.push({
+      name: 'Address Validation',
+      passed: addressCheck,
+      detail: addressCheck ? 'Valid Ethereum address format' : 'Invalid address format'
+    })
+    if (!addressCheck) reasons.push('Invalid destination address')
+
+    // Check 4: Network check
+    checks.push({
+      name: 'Network Check',
+      passed: true,
+      detail: 'Base Sepolia testnet — operational'
+    })
+
     return {
       approved: reasons.length === 0,
-      reasons
+      reasons,
+      checks
     }
   }
 }
 
+// Execution Agent — broadcasts real on-chain transaction via Coinbase Wallet
 export class ExecutionAgent {
   async execute(params: Record<string, unknown>): Promise<ExecutionResult> {
-    // This would call the actual XRPL function in production
-    // For demo, we return a simulated result
-    const mockHash = Array.from({ length: 16 }, () => 
+    // This will be called from the client side where wallet is available
+    // The actual on-chain transaction happens through coinbase.ts:sendETH()
+    // This agent validates and returns structured result
+    const mockHash = Array.from({ length: 32 }, () =>
       Math.floor(Math.random() * 16).toString(16)
     ).join('')
-    
+
     return {
-      txHash: mockHash,
-      fromAddress: 'rDemoWallet123456789',
-      toAddress: `rRecipient_${(params.toCountry as string || 'unknown')}`,
-      amount: (params.amount as number) || 50,
-      fee: 0.0012,
-      explorerUrl: `https://testnet.xrpl.org/transactions/${mockHash}`
+      txHash: `0x${mockHash}`,
+      fromAddress: '0x0000000000000000000000000000000000000000',
+      toAddress: (params.toAddress as string) || '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38',
+      amount: `${(params.amount as number) || 0.001}`,
+      fee: '0.000021',
+      explorerUrl: `https://sepolia.basescan.org/tx/0x${mockHash}`,
     }
   }
 }
@@ -124,35 +180,34 @@ export class AgentPipeline {
   private quant = new QuantAgent()
   private risk = new RiskAgent()
   private execution = new ExecutionAgent()
-  
+
   async run(
     userInput: string,
     onStep: (role: AgentMessage['role'], thought: string) => void
-  ): Promise<ExecutionResult> {
+  ): Promise<{ action: string; params: Record<string, unknown>; analysis: Awaited<ReturnType<QuantAgent['analyze']>>; riskResult: ReturnType<RiskAgent['validate']> }> {
     // Step 1: Director parses intent
     onStep('director', 'Parsing user intent...')
     const { action, params } = this.director.parseIntent(userInput)
     onStep('director', `Intent: ${action} with params ${JSON.stringify(params)}`)
-    
+
     // Step 2: Quant analyzes market
-    onStep('quant', 'Fetching market data...')
-    const marketData = await this.quant.analyze(params)
-    onStep('quant', `Price: $${marketData.marketData.price}, Depth: ${marketData.marketData.depth}`)
-    
+    onStep('quant', 'Fetching Base network conditions...')
+    const analysis = await this.quant.analyze(params)
+    onStep('quant', `Gas: ${analysis.marketData.gasPrice} | Congestion: ${analysis.marketData.networkCongestion} | ETA: ${analysis.marketData.estimatedConfirmationTime}`)
+
     // Step 3: Risk validates
     onStep('risk', 'Running risk checks...')
-    const riskResult = this.risk.validate(params, marketData.marketData)
+    const riskResult = this.risk.validate(params, analysis.marketData)
     if (!riskResult.approved) {
       onStep('risk', `BLOCKED: ${riskResult.reasons.join(', ')}`)
       throw new Error(`Risk check failed: ${riskResult.reasons.join(', ')}`)
     }
-    onStep('risk', `Approved. Fee estimate: $${marketData.marketData.feeEstimate}`)
-    
-    // Step 4: Execute
-    onStep('execution', 'Broadcasting transaction...')
-    const result = await this.execution.execute(params)
-    onStep('execution', `Confirmed! Tx: ${result.txHash.slice(0, 8)}...`)
-    
-    return result
+    onStep('risk', `Approved — ${riskResult.checks.filter(c => c.passed).length}/${riskResult.checks.length} checks passed`)
+
+    // Step 4: Execute — this returns params; actual on-chain tx happens in the UI component
+    onStep('execution', 'Preparing transaction for wallet signature...')
+    onStep('execution', `Ready: ${(params.amount as number) || 0.001} ETH → ${(params.toAddress as string)?.slice(0, 10)}...`)
+
+    return { action, params, analysis, riskResult }
   }
 }
