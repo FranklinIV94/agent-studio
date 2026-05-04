@@ -1,17 +1,28 @@
 import { createWalletClient, createPublicClient, http, parseEther, formatEther } from 'viem'
 import { baseSepolia } from 'viem/chains'
+import { coinbaseWallet } from 'wagmi/connectors'
 
-// Base Sepolia testnet configuration
-const chain = baseSepolia
-const publicClient = createPublicClient({
-  chain,
+// Base Sepolia configuration
+export const chain = baseSepolia
+
+export const publicClient = createPublicClient({
+  chain: baseSepolia,
   transport: http(),
 })
 
-export interface WalletConnection {
-  address: `0x${string}`
-  balance: string // in ETH
-  chainId: number
+// Pre-funded demo wallet for hackathon demo
+// This wallet has testnet ETH for live demos even without user wallet
+export const DEMO_WALLET = {
+  address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38' as `0x${string}`,
+  label: 'Demo Recipient (Brazil)',
+}
+
+// Demo addresses by region for remittance routing
+export const DEMO_ADDRESSES: Record<string, { address: `0x${string}`; label: string }> = {
+  brazil: { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38', label: 'Brazil' },
+  mexico: { address: '0x8ba1f109551bD432803012645Ac136ddd64DBA72', label: 'Mexico' },
+  philippines: { address: '0xdD2FD4581271e230360230F9337D5c0430Bf44C0', label: 'Philippines' },
+  india: { address: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', label: 'India' },
 }
 
 export interface TransactionResult {
@@ -21,86 +32,12 @@ export interface TransactionResult {
   amount: string
   fee: string
   explorerUrl: string
-  blockNumber?: bigint
+  blockNumber?: number
 }
 
-// Connect a wallet using the provider from Coinbase Wallet SDK
-export async function connectWallet(): Promise<WalletConnection> {
-  // In browser, this uses the injected provider
-  if (typeof window === 'undefined') {
-    throw new Error('Wallet connection requires browser environment')
-  }
-
-  const provider = (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum
-  if (!provider) {
-    throw new Error('No wallet provider found. Install Coinbase Wallet or MetaMask.')
-  }
-
-  const accounts = await provider.request({
-    method: 'eth_requestAccounts',
-  }) as string[]
-
-  const address = accounts[0] as `0x${string}`
-  const balance = await publicClient.getBalance({ address })
-
-  const chainId = await provider.request({
-    method: 'eth_chainId',
-  }) as string
-
-  return {
-    address,
-    balance: formatEther(balance),
-    chainId: parseInt(chainId, 16),
-  }
-}
-
-// Send ETH on Base Sepolia testnet
-export async function sendETH(
-  toAddress: `0x${string}`,
-  amount: string // in ETH
-): Promise<TransactionResult> {
-  if (typeof window === 'undefined') {
-    throw new Error('Transaction requires browser environment')
-  }
-
-  const provider = (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum
-  if (!provider) {
-    throw new Error('No wallet provider found')
-  }
-
-  const accounts = await provider.request({
-    method: 'eth_requestAccounts',
-  }) as string[]
-
-  const fromAddress = accounts[0] as `0x${string}`
-  const value = parseEther(amount)
-
-  const txHash = await provider.request({
-    method: 'eth_sendTransaction',
-    params: [{
-      from: fromAddress,
-      to: toAddress,
-      value: `0x${value.toString(16)}`,
-      data: '0x',
-    }],
-  }) as string
-
-  // Wait for transaction receipt
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash: txHash as `0x${string}`,
-  })
-
-  const fee = receipt.gasUsed * receipt.effectiveGasPrice
-
-  return {
-    txHash,
-    fromAddress,
-    toAddress,
-    amount,
-    fee: formatEther(fee),
-    explorerUrl: `https://sepolia.basescan.org/tx/${txHash}`,
-    blockNumber: receipt.blockNumber,
-  }
+// Get explorer URL for any transaction
+export function getExplorerUrl(txHash: string): string {
+  return `https://sepolia.basescan.org/tx/${txHash}`
 }
 
 // Get account info
@@ -111,20 +48,11 @@ export async function getAccountInfo(address: string): Promise<{
   const balance = await publicClient.getBalance({
     address: address as `0x${string}`,
   })
-
   const txCount = await publicClient.getTransactionCount({
     address: address as `0x${string}`,
   })
-
   return {
     balance: formatEther(balance),
     txCount,
   }
 }
-
-// Get explorer URL for any transaction
-export function getExplorerUrl(txHash: string): string {
-  return `https://sepolia.basescan.org/tx/${txHash}`
-}
-
-export { chain, publicClient }
