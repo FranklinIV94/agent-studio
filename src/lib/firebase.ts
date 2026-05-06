@@ -3,13 +3,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "REDACTED",
-  authDomain: "agent-studio-286f9.firebaseapp.com",
-  projectId: "agent-studio-286f9",
-  storageBucket: "agent-studio-286f9.firebasestorage.app",
-  messagingSenderId: "19071788772",
-  appId: "1:19071788772:web:c1e1b916158ed087e8eef1",
-  measurementId: "G-C5H89BPTRG"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ""
 };
 
 const isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
