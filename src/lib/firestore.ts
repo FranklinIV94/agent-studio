@@ -41,19 +41,13 @@ export async function saveRun(
   return doc.id
 }
 
-export async function getRecentRuns(
-  userId: string,
-  count = 10
-): Promise<(PipelineRun & { id: string })[]> {
+export async function getRecentRuns(userId?: string, maxResults: number = 20): Promise<PipelineRun[]> {
   if (!isConfigured || !db) return []
-  const q = query(
-    collection(db, RUNS_COLLECTION),
-    orderBy('createdAt', 'desc'),
-    limit(count)
-  )
+  let q = query(collection(db, RUNS_COLLECTION), orderBy('createdAt', 'desc'), limit(maxResults))
   const snapshot = await getDocs(q)
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as (PipelineRun & { id: string })[]
+  let runs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PipelineRun[]
+  if (userId) {
+    runs = runs.filter(r => r.userId === userId)
+  }
+  return runs
 }

@@ -1,9 +1,27 @@
 import OpenAI from 'openai'
+import {
+  X402_DATA_SERVICES,
+  evaluate402Challenge,
+  createX402Payment,
+  buildPaymentHeader,
+  type X402PaymentRequirement,
+  type X402ChallengeResponse,
+} from '@/lib/x402'
 
 export interface AgentMessage {
   role: 'director' | 'quant' | 'risk' | 'execution'
   content: string
   timestamp: number
+}
+
+export interface X402Step {
+  serviceId: string
+  serviceName: string
+  challenge: X402PaymentRequirement
+  evaluation: string
+  paymentAmount: string
+  paymentHeader: string
+  dataReceived: Record<string, unknown>
 }
 
 export interface ExecutionResult {
@@ -13,6 +31,7 @@ export interface ExecutionResult {
   amount: string
   fee: string
   explorerUrl: string
+  x402Data?: X402Step
 }
 
 export interface ParsedIntent {
@@ -162,6 +181,60 @@ export async function quantAnalyze(params: Record<string, unknown>): Promise<Mar
       recommendation: 'CONDITION_MET',
       reasoning: `Base Sepolia gas at ${gasPrice} ETH, congestion ${congestion}. Fee ${feeEstimate} ETH under threshold.`,
     }
+  }
+}
+
+// x402 Commerce Agent — Autonomous data access with HTTP 402 payment
+export async function x402Commerce(params: Record<string, unknown>, payerAddress: string): Promise<X402Step> {
+  // Pick a relevant data service based on transaction intent
+  const amount = (params.amount as number) || 0
+  const toAddress = (params.toAddress as string) || ''
+  
+  // Route to appropriate data service based on intent
+  const lower = JSON.stringify(params).toLowerCase()
+  let serviceId = 'market-feed' // default
+  if (lower.includes('sanctions') || lower.includes('compliance')) serviceId = 'sanctions-screen'
+  else if (lower.includes('credit') || lower.includes('loan')) serviceId = 'credit-bureau'
+  else if (lower.includes('fraud') || lower.includes('risk')) serviceId = 'risk-signal'
+  else if (lower.includes('fx') || lower.includes('remittance') || lower.includes('brazil') || lower.includes('mexico')) serviceId = 'fx-rates'
+
+  const service = X402_DATA_SERVICES.find(s => s.id === serviceId) || X402_DATA_SERVICES[0]
+
+  // Step 1: Request data from x402 endpoint (gets 402 challenge)
+  const challengeRes = await fetch(`${process.env.NEXT_PUBLIC_URL || 'https://agent-studio-fawn.vercel.app'}/api/x402/data?service=${service.id}`)
+  
+  if (challengeRes.status !== 402) {
+    throw new Error(`Expected 402 challenge, got ${challengeRes.status}`)
+  }
+  
+  const challengeBody = await challengeRes.json()
+  const challenge: X402PaymentRequirement = challengeBody.payment
+
+  // Step 2: Agent evaluates payment
+  const evaluation = evaluate402Challenge(challenge)
+  if (!evaluation.shouldPay) {
+    throw new Error(`Agent rejected payment: ${evaluation.reason}`)
+  }
+
+  // Step 3: Agent pays and gets payment header
+  const payment = await createX402Payment({ challenge, payerAddress })
+  const paymentHeader = buildPaymentHeader(payment)
+
+  // Step 4: Retry with payment proof, receive data
+  const dataRes = await fetch(`${process.env.NEXT_PUBLIC_URL || 'https://agent-studio-fawn.vercel.app'}/api/x402/data?service=${service.id}`, {
+    headers: { 'X-PAYMENT': paymentHeader },
+  })
+  
+  const dataBody = await dataRes.json()
+
+  return {
+    serviceId: service.id,
+    serviceName: service.name,
+    challenge,
+    evaluation: evaluation.reason,
+    paymentAmount: challenge.amount,
+    paymentHeader,
+    dataReceived: dataBody.data || dataBody,
   }
 }
 
