@@ -6,9 +6,9 @@
 
 ## 🎬 Demo
 
-**Demo Video:** [Agent Studio Pipeline Animation](https://cdn.muapi.ai/outputs/40a295da47984436bddb53da6f31f638.mp4)
+**Demo Video:** [30s Full Demo Reel — Miami intro → AgentPay on Seeker → Agent Studio on Seeker → Process animation](https://cdn.muapi.ai/outputs/9face131c0774a3892432e2a1e917e3c_consensus_demo_compressed.mp4)
 
-**Video Walkthrough:** [Screen recording on Seeker phone](https://cdn.muapi.ai/outputs/seeker_studio_wallet.mp4) *(no audio — Loom with narration coming soon)*
+**Pipeline Animation:** [Agent Studio x402 pipeline](https://cdn.muapi.ai/outputs/40a295da47984436bddb53da6f31f638.mp4) · [Seeker recording](https://cdn.muapi.ai/outputs/seeker_studio_wallet.mp4)
 
 ### Screenshots
 
