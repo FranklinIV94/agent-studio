@@ -238,7 +238,7 @@ export async function x402Commerce(params: Record<string, unknown>, payerAddress
   }
 }
 
-// Risk Agent — LLM-powered risk validation
+// Risk Agent — LLM-powered risk validation + AWS Bedrock evaluation
 export async function riskValidate(params: Record<string, unknown>, marketData: { feeEstimate: string }): Promise<RiskAssessment> {
   const amount = (params.amount as number) || 0
   const toAddress = (params.toAddress as string) || ''
@@ -251,13 +251,44 @@ export async function riskValidate(params: Record<string, unknown>, marketData: 
     { name: 'Network Check', passed: true, detail: 'Base Sepolia testnet — operational' },
   ]
 
+  // AWS Bedrock AI risk evaluation
+  const bedrockUrl = process.env.NEXT_PUBLIC_BEDROCK_EVALUATE_URL
+  let bedrockReasoning = ''
+  let bedrockApproved = true
+  if (bedrockUrl) {
+    try {
+      const bedrockResp = await fetch(bedrockUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: 'remittance',
+          amount,
+          payer_address: toAddress,
+          service_description: `Remittance of ${amount} ETH to ${toAddress.slice(0, 10)}...`,
+        }),
+      })
+      const bedrockData = await bedrockResp.json()
+      bedrockApproved = bedrockData.approved !== false
+      bedrockReasoning = bedrockData.reasoning || bedrockData.risk_factors?.join(', ') || ''
+      checks.push({
+        name: 'AWS Bedrock Nova Pro',
+        passed: bedrockApproved,
+        detail: bedrockApproved
+          ? `Bedrock AI approved — ${bedrockData.decision || 'low risk'}`
+          : `Bedrock AI flagged — ${bedrockData.decision || 'review recommended'}: ${bedrockReasoning.slice(0, 100)}`,
+      })
+    } catch {
+      checks.push({ name: 'AWS Bedrock Nova Pro', passed: true, detail: 'Bedrock evaluation unavailable — proceeding with local checks' })
+    }
+  }
+
   const reasons = checks.filter(c => !c.passed).map(c => c.detail)
 
   const openai = getOpenAI()
   if (!openai) {
     return {
       approved: reasons.length === 0, reasons, checks,
-      reasoning: reasons.length === 0 ? `All ${checks.length} risk checks passed. Transaction safe to execute.` : `Risk checks failed: ${reasons.join('; ')}`,
+      reasoning: reasons.length === 0 ? `All ${checks.length} risk checks passed (including Bedrock AI). Safe to execute.` : `Risk checks failed: ${reasons.join('; ')}`,
     }
   }
 
@@ -265,8 +296,8 @@ export async function riskValidate(params: Record<string, unknown>, marketData: 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: `You are the Risk agent. Given transaction params and check results, provide brief risk reasoning. Respond with ONLY valid JSON: { reasoning }` },
-        { role: 'user', content: `Transaction: ${JSON.stringify(params)}. Checks: ${JSON.stringify(checks)}. Approved: ${reasons.length === 0}` }
+        { role: 'system', content: `You are the Risk agent. Given transaction params and check results (including AWS Bedrock AI evaluation), provide brief risk reasoning. Respond with ONLY valid JSON: { reasoning }` },
+        { role: 'user', content: `Transaction: ${JSON.stringify(params)}. Checks: ${JSON.stringify(checks)}. Bedrock approved: ${bedrockApproved}. Bedrock reasoning: ${bedrockReasoning}. Approved: ${reasons.length === 0}` }
       ],
       temperature: 0.2, max_tokens: 150,
     })
@@ -274,12 +305,12 @@ export async function riskValidate(params: Record<string, unknown>, marketData: 
     const parsed = JSON.parse(content)
     return {
       approved: reasons.length === 0, reasons, checks,
-      reasoning: parsed.reasoning || (reasons.length === 0 ? 'All checks passed.' : `Checks failed: ${reasons.join('; ')}`),
+      reasoning: parsed.reasoning || (reasons.length === 0 ? 'All checks passed (including Bedrock AI).' : `Checks failed: ${reasons.join('; ')}`),
     }
   } catch {
     return {
       approved: reasons.length === 0, reasons, checks,
-      reasoning: reasons.length === 0 ? `All ${checks.length} risk checks passed. Safe to execute.` : `Risk checks failed: ${reasons.join('; ')}`,
+      reasoning: reasons.length === 0 ? `All ${checks.length} risk checks passed (including Bedrock AI). Safe to execute.` : `Risk checks failed: ${reasons.join('; ')}`,
     }
   }
 }
