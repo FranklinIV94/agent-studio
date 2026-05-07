@@ -244,10 +244,14 @@ export async function riskValidate(params: Record<string, unknown>, marketData: 
   const toAddress = (params.toAddress as string) || ''
   const feeEst = parseFloat(marketData.feeEstimate) || 0
 
+  // For non-transaction actions (balance checks, etc.), use the default destination address
+  const effectiveAddress = toAddress || DEMO_ADDRESSES.brazil.address
+  const isDefaultAddress = !toAddress
+
   const checks: { name: string; passed: boolean; detail: string }[] = [
     { name: 'Amount Threshold', passed: amount <= 1, detail: amount <= 1 ? `${amount} ETH within safe limit (≤1 ETH)` : `${amount} ETH exceeds safe threshold` },
     { name: 'Fee Validation', passed: feeEst < 0.01, detail: feeEst < 0.01 ? `Fee ${marketData.feeEstimate} under $0.01 threshold` : `Fee ${marketData.feeEstimate} too high` },
-    { name: 'Address Validation', passed: toAddress.startsWith('0x') && toAddress.length === 42, detail: toAddress.startsWith('0x') && toAddress.length === 42 ? 'Valid Ethereum address format' : 'Invalid address format' },
+    { name: 'Address Validation', passed: effectiveAddress.startsWith('0x') && effectiveAddress.length === 42, detail: effectiveAddress.startsWith('0x') && effectiveAddress.length === 42 ? `Valid Ethereum address format${isDefaultAddress ? ' (default destination)' : ''}` : `Invalid address format` },
     { name: 'Network Check', passed: true, detail: 'Base Sepolia testnet — operational' },
   ]
 
@@ -263,8 +267,8 @@ export async function riskValidate(params: Record<string, unknown>, marketData: 
         body: JSON.stringify({
           service_id: 'remittance',
           amount,
-          payer_address: toAddress,
-          service_description: `Remittance of ${amount} ETH to ${toAddress.slice(0, 10)}...`,
+          payer_address: effectiveAddress,
+          service_description: `Remittance of ${amount} ETH to ${effectiveAddress.slice(0, 10)}...`,
         }),
       })
       const bedrockData = await bedrockResp.json()
