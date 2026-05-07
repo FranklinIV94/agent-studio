@@ -4,6 +4,26 @@
 
 **Live:** [agent-studio-fawn.vercel.app](https://agent-studio-fawn.vercel.app)
 
+## 🎬 Demo
+
+**Demo Video:** [Agent Studio Pipeline Animation](https://cdn.muapi.ai/outputs/40a295da47984436bddb53da6f31f638.mp4)
+
+**Video Walkthrough:** [Screen recording on Seeker phone](https://cdn.muapi.ai/outputs/seeker_studio_wallet.mp4) *(no audio — Loom with narration coming soon)*
+
+### Screenshots
+
+| Landing | Pipeline | After Execution |
+|---------|----------|-----------------|
+| ![Landing](https://raw.githubusercontent.com/FranklinIV94/agent-studio/main/public/demo_screens/agent_studio_landing.png) | ![Pipeline](https://raw.githubusercontent.com/FranklinIV94/agent-studio/main/public/demo_screens/agent_studio_pipeline_hero.png) | ![After Tap](https://raw.githubusercontent.com/FranklinIV94/agent-studio/main/public/demo_screens/studio_after_tap.png) |
+
+## ⛓️ How We Use Base (Coinbase L2)
+
+1. **Coinbase Smart Wallet** — Users connect via Coinbase Smart Wallet on Base Sepolia. No seed phrases, no browser extensions — just the Coinbase app.
+2. **x402 Protocol (HTTP 402)** — Agent Studio implements server-side 402 challenges. When an agent needs market data, fraud signals, or sanctions screening, the data endpoint responds with HTTP 402 + payment headers (amount, recipient, network). The agent evaluates the cost, creates a payment signature via Smart Wallet, and retries with the `X-PAYMENT` header. The server verifies on-chain and returns the data.
+3. **On-chain Settlement** — After the Risk agent approves, the Execution agent calls `sendTransaction` via Wagmi/Viem to settle the remittance on Base Sepolia. Transaction confirmed in <5 seconds with gas under $0.01.
+4. **Payment Flow:** Director parses intent → Quant analyzes gas/fees → Risk validates via Bedrock → x402 agent pays for data services → Execution settles remittance on Base.
+
+
 ## Overview
 
 Agent Studio is a multi-agent AI pipeline that reasons, acts, and shows its work. Each agent thinks out loud with LLM reasoning, validates conditions, and executes real transactions on Base via Coinbase Smart Wallet.
