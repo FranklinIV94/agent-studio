@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Agent Studio — Agentic Finance on Base
 
-## Getting Started
+> Multi-agent AI pipeline for autonomous commerce. Director parses intent, Quant analyzes markets, Risk validates via AWS Bedrock Nova Pro, Execution settles x402 payments on Base.
 
-First, run the development server:
+**Live:** [agent-studio-fawn.vercel.app](https://agent-studio-fawn.vercel.app)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Overview
+
+Agent Studio is a multi-agent AI pipeline that reasons, acts, and shows its work. Each agent thinks out loud with LLM reasoning, validates conditions, and executes real transactions on Base via Coinbase Smart Wallet.
+
+Built for the **Coinbase + AWS Agentic Track** at Consensus 2026 Miami.
+
+## How It Works
+
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ Director  │───▶│  Quant   │───▶│   Risk   │───▶│Execution │
+│  (LLM)   │    │ (Market) │    │(Bedrock) │    │  (x402)  │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘
+     │               │               │               │
+  Parses intent  Analyzes markets  Validates risk  Settles payment
+  with reasoning  on Base Sepolia  via Nova Pro    on Base Sepolia
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Director** — Parses user intent with LLM reasoning
+2. **Quant** — Analyzes market conditions on Base
+3. **Risk** — Validates via AWS Bedrock Nova Pro
+4. **Execution** — Settles x402 payments on-chain
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend:** Next.js 16 + React 19 + Tailwind CSS
+- **Animations:** Framer Motion (spring physics, AnimatePresence)
+- **Wallet:** Coinbase Smart Wallet via Wagmi + Viem
+- **Backend:** AWS Lambda (API Gateway + Bedrock)
+- **Chain:** Base Sepolia (x402 protocol)
+- **State:** Firebase Firestore
+- **AI:** DeepSeek + OpenAI (reasoning), AWS Bedrock Nova Pro (risk)
 
-## Learn More
+## Quick Start
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Install dependencies
+npm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Set up environment variables (see .env.example)
+cp .env.example .env.local
+# Fill in your keys
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Run development server
+npm run dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000](http://localhost:3000).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API Routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `POST /api/run` — Execute the full agent pipeline
+- `GET /api/x402/data` — x402 service catalog
+- `POST /api/x402/pay` — x402 payment settlement
+
+## x402 Integration
+
+Agent Studio implements the x402 (HTTP 402) protocol for micropayments on Base:
+
+- Market Data: $0.01 per request
+- Fraud Risk: $0.02 per request
+- Sanctions Screen: $0.05 per request
+- Credit Bureau: $0.10 per request
+
+## Consensus 2026
+
+This project was built in 72 hours for Consensus 2026 Miami.
+
+**Submission:** [consensus-submission.vercel.app](https://consensus-submission.vercel.app)  
+**Paired with:** [AgentPay Solana](https://agentpay-solana.vercel.app) — human approval layer
+
+## License
+
+MIT
