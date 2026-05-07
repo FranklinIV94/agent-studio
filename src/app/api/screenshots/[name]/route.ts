@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 
-export async function GET(req: NextRequest, { params }: { params: { name: string } }) {
-  const name = params.name;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+  const { name } = await params;
   const filePath = path.join(process.cwd(), 'public', 'demo_screens', name);
   
   if (!fs.existsSync(filePath)) {
